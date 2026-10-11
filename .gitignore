@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+node_modules/
+.vscode/
+*.backup
+*.before-*
+*.energy-backup
