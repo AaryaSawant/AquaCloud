@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AquaCloudReadingsOnly",
+      "Effect": "Allow",
+      "Action": ["dynamodb:Query", "dynamodb:PutItem"],
+      "Resource": "arn:aws:dynamodb:ap-south-1:080949906227:table/AquaCloudReadings"
+    },
+    {
+      "Sid": "AquaCloudReportsWriteOnly",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::aquacloud-reports-aarya.sawant15/reports/*"
+    },
+    {
+      "Sid": "AquaCloudExistingLogGroupOnly",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:ap-south-1:080949906227:log-group:/aws/lambda/AquaCloudBackend:log-stream:*"
+    }
+  ]
+}
