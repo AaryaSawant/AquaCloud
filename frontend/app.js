@@ -261,6 +261,7 @@ async function apiRequest(path, options = {}) {
     throw new Error("No API URL configured.");
   }
 
+  const authHeaders = AquaAuth.headers(state.apiUrl);
   const controller = new AbortController();
 
   const timeout = setTimeout(() => {
@@ -273,9 +274,13 @@ async function apiRequest(path, options = {}) {
       {
         ...options,
         signal: controller.signal,
+        redirect: "error",
+        credentials: "omit",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
-          ...(options.headers || {})
+          ...(options.headers || {}),
+          ...authHeaders
         }
       }
     );
@@ -290,6 +295,7 @@ async function apiRequest(path, options = {}) {
       payload = { message: rawText };
     }
 
+    if (response.status === 401) { AquaAuth.clear(); updateAuthUI(); clearCloudData(); }
     if (!response.ok) {
       const message =
         payload?.message ||
@@ -497,6 +503,11 @@ function loadDemo() {
 
 async function refreshDashboard(showSuccess = false) {
   if (state.loading) return;
+  if (state.apiUrl && !AquaAuth.signedIn()) {
+    clearCloudData();
+    updateAuthUI();
+    return;
+  }
 
   if (!state.apiUrl) {
     loadDemo();
@@ -516,6 +527,8 @@ async function refreshDashboard(showSuccess = false) {
   try {
     const payload = await apiRequest("/dashboard");
 
+    // A request may finish after the user signs out or the token expires.
+    if (!AquaAuth.signedIn()) { clearCloudData(); updateAuthUI(); return; }
     const normalized = normalizeDashboard(payload);
 
     state.mode = "live";
@@ -588,6 +601,11 @@ function updateConnectionStatus() {
     );
     setText("top-status", "API ERROR");
     setText("footer-mode", "Connection error");
+  } else if (state.mode === "signed-out") {
+    setText("connection-label", "Sign-in required");
+    setText("connection-description", "Sign in with your AquaCloud account to load cloud readings.");
+    setText("top-status", "SIGNED OUT");
+    setText("footer-mode", "Sign-in required");
   } else {
     setText("connection-label", "Connecting...");
     setText(
@@ -1384,6 +1402,7 @@ function renderDashboard() {
 
 async function exportReport() {
   if (state.exporting) return;
+  if (!AquaAuth.canExport()) { showToast("Operator or Admin access is required to export.", true); return; }
 
   if (!state.apiUrl || state.mode === "demo") {
     showToast(
@@ -1409,7 +1428,7 @@ async function exportReport() {
       body: JSON.stringify({})
     });
 
-    console.log("S3 export response:", response);
+    // The response contains object paths only. No public object URLs are created.
 
     showToast(
       "Report export completed. Check your AquaCloud S3 bucket."
@@ -1425,7 +1444,7 @@ async function exportReport() {
     state.exporting = false;
 
     if (button) {
-      button.disabled = false;
+      button.disabled = !AquaAuth.canExport();
       button.querySelector("span").textContent =
         "Export report";
     }
@@ -1491,6 +1510,7 @@ async function saveApiConfiguration(event) {
    ========================================================== */
 
 function initializeEvents() {
+  $("cancel-api")?.addEventListener("click", () => $("api-dialog").close());
   $("refresh-button")?.addEventListener(
     "click",
     () => refreshDashboard(true)
@@ -1549,6 +1569,10 @@ function initializeEvents() {
 
 async function initializeApp() {
   initializeEvents();
+  $("login-button").addEventListener("click", () => AquaAuth.login().catch(error => showToast(error.message, true)));
+  $("logout-button").addEventListener("click", () => { clearCloudData(); AquaAuth.logout(); });
+  try { await AquaAuth.initialize(); } catch (error) { showToast(error.message, true); }
+  updateAuthUI();
 
   updateConnectionStatus();
 
@@ -1563,6 +1587,7 @@ async function initializeApp() {
 
   setInterval(() => {
     if (
+      AquaAuth.signedIn() &&
       state.apiUrl &&
       state.mode !== "demo" &&
       !state.loading
@@ -1576,3 +1601,29 @@ document.addEventListener(
   "DOMContentLoaded",
   initializeApp
 );
+
+
+function clearCloudData() {
+  state.summary = null;
+  state.buildings = [];
+  state.readings = [];
+  state.leaks = [];
+  state.generatedAt = null;
+  state.mode = "signed-out";
+  renderDashboard();
+  updateConnectionStatus();
+}
+function updateAuthUI() {
+  const signedIn = AquaAuth.signedIn();
+  $("auth-status").textContent = signedIn ? `Signed in: ${AquaAuth.role()}` : AquaAuth.configured() ? "Sign in to view cloud data" : "Cognito setup pending";
+  $("login-button").hidden = signedIn;
+  $("login-button").disabled = !AquaAuth.configured();
+  $("logout-button").hidden = !signedIn;
+  $("export-button").disabled = !AquaAuth.canExport();
+}
+setInterval(() => {
+  if (!AquaAuth.signedIn()) {
+    updateAuthUI();
+    if (state.mode !== "demo" && state.mode !== "signed-out") clearCloudData();
+  }
+}, 1000);

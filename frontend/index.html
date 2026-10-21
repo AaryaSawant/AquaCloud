@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#091522">
   <title>AquaCloud | Water Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +13,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <section aria-label="Account" class="account-bar">
+    <span id="auth-status" role="status">Sign in to view cloud data</span>
+    <button id="login-button" class="button button-primary">Sign in</button>
+    <button id="logout-button" class="button button-secondary" hidden>Sign out</button>
+  </section>
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#overview">
@@ -227,7 +233,7 @@
       <label for="api-url">API base URL</label>
       <input id="api-url" type="url" placeholder="https://your-api-id.execute-api.ap-south-1.amazonaws.com/prod">
       <div class="dialog-actions">
-        <button class="button button-secondary" value="cancel">Cancel</button>
+        <button type="button" class="button button-secondary" id="cancel-api">Cancel</button>
         <button class="button button-primary" id="save-api" value="default">Save &amp; connect</button>
       </div>
       <p class="dialog-note">Never enter AWS credentials or API keys here.</p>
@@ -235,6 +241,8 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="auth-config.js"></script>
+  <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

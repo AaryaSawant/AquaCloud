@@ -29,6 +29,8 @@ from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from security import authorize
+
 from processing import BUILDINGS, process_reading, validate_reading
 
 
@@ -58,8 +60,10 @@ s3 = boto3.client("s3")
 
 CORS_HEADERS = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+    "Access-Control-Allow-Origin": os.environ.get("ALLOWED_ORIGIN", "http://localhost:8000"),
+    "Cache-Control": "no-store",
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,x-api-key",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 }
 
@@ -711,6 +715,10 @@ def lambda_handler(event, context):
             and route == "/dashboard"
         ):
 
+            denial = authorize(event, "read")
+            if denial:
+                print(json.dumps({"event": "authorization_denied", "action": "read", "status": denial}))
+                return respond(denial, {"error": "Unauthorized" if denial == 401 else "Forbidden" if denial == 403 else "Authentication configuration missing"})
             return handle_dashboard()
 
         # ----------------------------------------------------------
@@ -722,6 +730,10 @@ def lambda_handler(event, context):
             and route == "/export"
         ):
 
+            denial = authorize(event, "export")
+            if denial:
+                print(json.dumps({"event": "authorization_denied", "action": "export", "status": denial}))
+                return respond(denial, {"error": "Unauthorized" if denial == 401 else "Forbidden" if denial == 403 else "Authentication configuration missing"})
             return handle_export()
 
         # ----------------------------------------------------------
