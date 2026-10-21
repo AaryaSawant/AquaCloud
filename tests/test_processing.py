@@ -40,6 +40,18 @@ def reading(**overrides):
 
 class TestValidation(unittest.TestCase):
 
+    def test_invalid_building_types(self):
+        for building in [[], {}, None, 1]:
+            with self.subTest(building=building):
+                _, errors = validate_reading(reading(building_id=building))
+                self.assertTrue(errors)
+
+    def test_nonfinite_flow_rejected(self):
+        for flow in [float('nan'), float('inf'), float('-inf')]:
+            _, errors = validate_reading(reading(flow_lpm=flow))
+            self.assertTrue(errors)
+
+
     def test_valid_reading(self):
         clean, errors = validate_reading(reading())
 
@@ -234,6 +246,18 @@ class TestLeakDetection(unittest.TestCase):
 
 
 class TestFullPipeline(unittest.TestCase):
+
+    def test_zero_baseline(self):
+        record, errors = process_reading(reading(flow_lpm=1), [0] * 5)
+        self.assertEqual(errors, [])
+        self.assertEqual(record['status'], 'LEAK DETECTED')
+        self.assertIn('zero-flow baseline', record['reasons'][0])
+
+    def test_zero_flow_on_zero_baseline(self):
+        record, errors = process_reading(reading(flow_lpm=0), [0] * 5)
+        self.assertEqual(errors, [])
+        self.assertEqual(record['status'], 'NORMAL')
+
 
     NORMAL_HISTORY = [
         15.0,

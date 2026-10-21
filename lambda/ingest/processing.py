@@ -109,7 +109,7 @@ def validate_reading(payload):
     flow_lpm = payload.get("flow_lpm")
 
     # Validate building and registered sensor.
-    if building_id not in BUILDINGS:
+    if not isinstance(building_id, str) or building_id not in BUILDINGS:
         errors.append(f"Unknown building_id: {building_id!r}")
     elif sensor_id != BUILDINGS[building_id]["sensor_id"]:
         errors.append(
@@ -205,12 +205,16 @@ def detect_leak(building_id, flow_lpm, recent_normal_flows):
         baseline is not None
         and flow_lpm > DEVIATION_FACTOR * baseline
     ):
-        pct = round((flow_lpm / baseline - 1) * 100)
-
-        reasons.append(
-            f"DEVIATION: {flow_lpm} L/min is {pct}% above "
-            f"baseline {baseline} L/min"
-        )
+        if baseline == 0:
+            reasons.append(
+                f"DEVIATION: {flow_lpm} L/min exceeds zero-flow baseline"
+            )
+        else:
+            pct = round((flow_lpm / baseline - 1) * 100)
+            reasons.append(
+                f"DEVIATION: {flow_lpm} L/min is {pct}% above "
+                f"baseline {baseline} L/min"
+            )
 
     return {
         "status": "LEAK DETECTED" if reasons else "NORMAL",
